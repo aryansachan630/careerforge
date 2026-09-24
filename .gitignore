@@ -1,6 +1,5 @@
 node_modules/
-dist/
 .env
-*.log
-server/data/*.json
-!server/data/.gitkeep
+dist/
+.DS_Store
+npm-debug.log*

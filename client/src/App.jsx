@@ -1,12 +1,34 @@
-import React,{useEffect,useState}from"react";
-const API="http://localhost:5000/api";
-async function api(path,opt={}){const token=localStorage.getItem("cf_token");const r=await fetch(API+path,{...opt,headers:{"Content-Type":"application/json",...(token?{Authorization:"Bearer "+token}:{}),...(opt.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.message||"Request failed");return d}
-function Auth({done}){const[reg,setReg]=useState(false),[f,setF]=useState({name:"",email:"",password:""}),[err,setErr]=useState(""),[busy,setBusy]=useState(false);
-async function submit(e){e.preventDefault();setErr("");setBusy(true);try{const d=await api(reg?"/auth/register":"/auth/login",{method:"POST",body:JSON.stringify(f)});localStorage.setItem("cf_token",d.token);localStorage.setItem("cf_user",JSON.stringify(d.user));done(d.user)}catch(x){setErr(x.message)}finally{setBusy(false)}}
-return <main className="auth"><div className="card"><div className="logo">Career<span>Forge</span></div><small>JOB APPLICATION TRACKER</small><h1>{reg?"Create your account":"Welcome back"}</h1><p>Keep your job search organized in one place.</p><form onSubmit={submit}>{reg&&<input placeholder="Full name" value={f.name} onChange={e=>setF({...f,name:e.target.value})}/>}<input type="email" placeholder="Email" required value={f.email} onChange={e=>setF({...f,email:e.target.value})}/><input type="password" minLength="6" placeholder="Password" required value={f.password} onChange={e=>setF({...f,password:e.target.value})}/>{err&&<div className="error">{err}</div>}<button disabled={busy}>{busy?"Please wait...":reg?"Create account":"Sign in"}</button></form><button className="link" onClick={()=>{setReg(!reg);setErr("")}}>{reg?"Already have an account? Sign in":"New here? Create an account"}</button></div></main>}
-function Dashboard({user,out}){const[a,setA]=useState([]),[f,setF]=useState({company:"",role:"",status:"Applied",location:""}),[err,setErr]=useState("");
-async function load(){try{setA(await api("/applications"))}catch(e){setErr(e.message)}}useEffect(()=>{load()},[]);
-async function add(e){e.preventDefault();try{await api("/applications",{method:"POST",body:JSON.stringify(f)});setF({company:"",role:"",status:"Applied",location:""});load()}catch(e){setErr(e.message)}}
-async function del(id){await api("/applications/"+id,{method:"DELETE"});load()}
-return <div><header><div className="logo">Career<span>Forge</span></div><div>Hi, {user.name} <button className="ghost" onClick={out}>Logout</button></div></header><main className="dash"><h1>Application Dashboard</h1><p>Track your applications and progress.</p><div className="stats"><div><b>{a.length}</b><span>Total</span></div><div><b>{a.filter(x=>x.status==="Applied").length}</b><span>Applied</span></div><div><b>{a.filter(x=>x.status==="Interview").length}</b><span>Interviews</span></div><div><b>{a.filter(x=>x.status==="Offer").length}</b><span>Offers</span></div></div><section><h2>Add application</h2><form className="grid" onSubmit={add}><input required placeholder="Company" value={f.company} onChange={e=>setF({...f,company:e.target.value})}/><input required placeholder="Role" value={f.role} onChange={e=>setF({...f,role:e.target.value})}/><input placeholder="Location" value={f.location} onChange={e=>setF({...f,location:e.target.value})}/><select value={f.status} onChange={e=>setF({...f,status:e.target.value})}><option>Applied</option><option>Interview</option><option>Offer</option><option>Rejected</option></select><button>Add application</button></form>{err&&<div className="error">{err}</div>}</section><section><h2>Your applications</h2>{!a.length?<div className="empty">No applications yet.</div>:<table><thead><tr><th>Company</th><th>Role</th><th>Location</th><th>Status</th><th></th></tr></thead><tbody>{a.map(x=><tr key={x.id}><td>{x.company}</td><td>{x.role}</td><td>{x.location||"—"}</td><td><span className="pill">{x.status}</span></td><td><button className="delete" onClick={()=>del(x.id)}>Delete</button></td></tr>)}</tbody></table>}</section></main></div>}
-export default function App(){const[u,setU]=useState(()=>{try{return JSON.parse(localStorage.getItem("cf_user")||"null")}catch{return null}});function done(x){setU(x)}function out(){localStorage.clear();setU(null)}return u?<Dashboard user={u} out={out}/>:<Auth done={done}/>;}
+import { useEffect, useState } from "react";
+import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import Dashboard from "./pages/Dashboard";
+
+function Protected({ children }) {
+  return localStorage.getItem("careerforge_token") ? children : <Navigate to="/login" replace />;
+}
+
+export default function App() {
+  const [user, setUser] = useState(() => JSON.parse(localStorage.getItem("careerforge_user") || "null"));
+
+  const saveAuth = (data) => {
+    localStorage.setItem("careerforge_token", data.token);
+    localStorage.setItem("careerforge_user", JSON.stringify(data.user));
+    setUser(data.user);
+  };
+
+  const logout = () => {
+    localStorage.removeItem("careerforge_token");
+    localStorage.removeItem("careerforge_user");
+    setUser(null);
+  };
+
+  return (
+    <Routes>
+      <Route path="/login" element={user ? <Navigate to="/" /> : <Login onAuth={saveAuth} />} />
+      <Route path="/register" element={user ? <Navigate to="/" /> : <Register onAuth={saveAuth} />} />
+      <Route path="/" element={<Protected><Dashboard user={user} onLogout={logout} /></Protected>} />
+      <Route path="*" element={<Navigate to="/" />} />
+    </Routes>
+  );
+}
