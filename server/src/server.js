@@ -6,7 +6,6 @@ import { connectDB } from "./config/db.js";
 import authRoutes from "./routes/auth.js";
 import applicationRoutes from "./routes/applications.js";
 
-global.crypto = crypto;
 
 const app = express();
 app.use(cors());
